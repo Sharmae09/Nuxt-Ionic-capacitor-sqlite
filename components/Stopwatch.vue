@@ -258,7 +258,7 @@ button:hover {
   opacity: 0.8;
 }
 </style> -->
-<script setup lang="ts">
+<!-- <script setup lang="ts">
 import { ref, computed, onMounted } from "vue";
 import { CapacitorSQLite, SQLiteConnection } from "@capacitor-community/sqlite";
 import { IonButton, IonList, IonItem, IonLabel } from "@ionic/vue";
@@ -409,5 +409,104 @@ button {
 }
 button:hover {
   opacity: 0.8;
+}
+</style> -->
+<script setup lang="ts">
+import { ref, onMounted } from "vue";
+// import { useDatabase } from "/composables/useDatabase"; // Composable to handle SQLite
+
+const formatTime = (milliseconds: number) => {
+  const seconds = Math.floor(milliseconds / 1000);
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
+  return `${minutes}:${remainingSeconds.toString().padStart(2, "0")}`;
+};
+
+const elapsedTime = ref(0);
+const isRunning = ref(false);
+const startTime = ref(0);
+const intervalId = ref<number | null>(null);
+const sessions = ref<{ id: number; duration: number }[]>([]);
+const db = useDatabase();
+
+const startStopwatch = () => {
+  if (!isRunning.value) {
+    startTime.value = Date.now() - elapsedTime.value;
+    intervalId.value = setInterval(() => {
+      elapsedTime.value = Date.now() - startTime.value;
+    }, 100);
+    isRunning.value = true;
+  }
+};
+
+const stopStopwatch = async () => {
+  if (isRunning.value) {
+    clearInterval(intervalId.value!);
+    isRunning.value = false;
+    await saveSession(elapsedTime.value);
+    elapsedTime.value = 0;
+  }
+};
+
+const saveSession = async (time: number) => {
+  try {
+    const dbConn = await db.getDb();
+    await dbConn.insertInto("sessions").values({ duration: time }).execute();
+    loadSessions();
+  } catch (error) {
+    console.error("Error saving session:", error);
+  }
+};
+
+const loadSessions = async () => {
+  try {
+    const dbConn = await db.getDb();
+    sessions.value = await dbConn.selectFrom("sessions").selectAll().execute();
+  } catch (error) {
+    console.error("Error loading sessions:", error);
+  }
+};
+
+onMounted(async () => {
+  await db.init();
+  await loadSessions();
+});
+</script>
+
+<template>
+  <ion-page>
+    <ion-header>
+      <ion-toolbar>
+        <ion-title>Stopwatch</ion-title>
+      </ion-toolbar>
+    </ion-header>
+
+    <ion-content class="ion-padding">
+      <div class="stopwatch">
+        <h1>{{ formatTime(elapsedTime) }}</h1>
+        <ion-button @click="startStopwatch" :disabled="isRunning"
+          >Start</ion-button
+        >
+        <ion-button @click="stopStopwatch" :disabled="!isRunning"
+          >Stop</ion-button
+        >
+      </div>
+
+      <ion-list>
+        <ion-list-header>
+          <ion-label>Session History</ion-label>
+        </ion-list-header>
+        <ion-item v-for="session in sessions" :key="session.id">
+          <ion-label>{{ formatTime(session.duration) }}</ion-label>
+        </ion-item>
+      </ion-list>
+    </ion-content>
+  </ion-page>
+</template>
+
+<style scoped>
+.stopwatch {
+  text-align: center;
+  font-size: 2rem;
 }
 </style>
