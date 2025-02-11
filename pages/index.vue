@@ -7,7 +7,7 @@
     </IonHeader>
     <IonContent class="ion-padding">
       <IonButton @click="showAlert">Click Me</IonButton>
-      <Stopwatch />
+      <!-- <Stopwatch /> -->
     </IonContent>
   </IonPage>
 </template>
